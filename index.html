@@ -40,20 +40,24 @@
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: 20px;
     box-shadow: var(--shadow);
-    padding: 18px;
+    padding: 14px 16px;
   }
   .hero {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 10px;
   }
-  h1 { margin: 0; font-size: 24px; }
-  .hero-copy p {
-    margin: 6px 0 0;
-    color: var(--muted);
-    font-size: 14px;
+  h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+  }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .hero-badge {
     white-space: nowrap;
@@ -70,6 +74,7 @@
     gap: 10px;
     align-items: center;
   }
+  .toolbar[hidden] { display: none; }
   input,
   button {
     min-height: 46px;
@@ -102,6 +107,10 @@
     background: #0b5f59;
     border-color: #0b5f59;
   }
+  button:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
   .desktop-only { display: inline-flex; }
   .mobile-only { display: none; }
   main {
@@ -133,11 +142,6 @@
   .count {
     color: var(--muted);
     font-size: 14px;
-  }
-  .hint {
-    color: var(--muted);
-    font-size: 13px;
-    margin-top: 4px;
   }
   .result {
     padding: 14px;
@@ -205,9 +209,6 @@
     flex: 1;
     min-height: 50px;
   }
-  .mobile-panel {
-    display: none;
-  }
   .backdrop {
     display: none;
     position: fixed;
@@ -228,25 +229,29 @@
       padding-bottom: 14px;
     }
     header {
-      padding: 14px;
-      border-radius: 18px;
+      padding: 10px 12px;
+      border-radius: 16px;
     }
     .hero {
-      flex-direction: column;
-      align-items: stretch;
-      margin-bottom: 10px;
+      margin-bottom: 0;
     }
+    h1 { font-size: 20px; }
+    .hero-badge { display: none; }
     .toolbar {
       grid-template-columns: 1fr 84px 84px;
+      margin-top: 10px;
     }
     .toolbar .search-input {
       grid-column: 1 / -1;
+    }
+    body:not(.tools-open) .toolbar {
+      display: none;
     }
     .desktop-only { display: none; }
     .mobile-only { display: inline-flex; }
     main {
       grid-template-columns: 1fr;
-      padding-top: 12px;
+      padding-top: 10px;
     }
     aside {
       position: fixed;
@@ -263,37 +268,19 @@
       transform: translateX(0);
     }
     article {
-      min-height: calc(100vh - 150px);
-      padding: 18px 16px 96px;
+      min-height: calc(100vh - 92px);
+      padding: 16px 14px 18px;
+      border-radius: 18px;
     }
     h2 { font-size: 22px; }
     .view-top {
       flex-direction: column;
       align-items: flex-start;
-    }
-    .mobile-panel {
-      position: fixed;
-      left: 10px;
-      right: 10px;
-      bottom: 10px;
-      z-index: 18;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(215, 219, 226, 0.9);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-    }
-    .mobile-panel button {
-      min-height: 48px;
-      font-size: 15px;
-      padding: 10px;
+      gap: 6px;
     }
     .nav-controls {
-      display: none;
+      margin-top: 18px;
+      padding-top: 14px;
     }
   }
 </style>
@@ -302,17 +289,18 @@
 <div class="app-shell">
   <header>
     <div class="hero">
-      <div class="hero-copy">
-        <h1>ГОСЫ — ответы и поиск</h1>
-        <p>Быстрый поиск, переход по номеру и удобное чтение с телефона.</p>
+      <h1>ГОСЫ</h1>
+      <div class="hero-actions">
+        <div class="hero-badge" id="heroBadge">59 вопросов</div>
+        <button id="toggleTools" class="mobile-only" type="button">Поиск</button>
+        <button id="menuToggle" class="mobile-only accent-button" type="button">Список</button>
       </div>
-      <div class="hero-badge" id="heroBadge">59 вопросов</div>
     </div>
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
       <input class="search-input" id="q" type="search" placeholder="Поиск: IDEF0, нормализация, обратная связь, PHP..." autofocus>
       <input id="jump" type="number" inputmode="numeric" min="1" step="1" placeholder="№">
       <button id="go" class="desktop-only">Открыть</button>
-      <button id="menuToggle" class="mobile-only accent-button" type="button">Список</button>
+      <button id="goMobile" class="mobile-only" type="button">Открыть</button>
       <button id="clear" type="button">Сброс</button>
     </div>
   </header>
@@ -320,17 +308,11 @@
     <aside id="sidebar">
       <div class="sidebar-head">
         <div class="count" id="count"></div>
-        <div class="hint">Можно искать по теме, тегу или открыть вопрос по номеру.</div>
       </div>
       <div id="results"></div>
     </aside>
     <article id="view"></article>
   </main>
-  <div class="mobile-panel">
-    <button id="prevMobile" type="button">← Назад</button>
-    <button id="openMobileMenu" type="button" class="accent-button">Вопросы</button>
-    <button id="nextMobile" type="button">Вперед →</button>
-  </div>
 </div>
 <div class="backdrop" id="backdrop"></div>
 
@@ -340,16 +322,16 @@ const DATA = JSON.parse(document.getElementById('data').textContent).items;
 const q = document.getElementById('q');
 const jump = document.getElementById('jump');
 const go = document.getElementById('go');
+const goMobile = document.getElementById('goMobile');
+const toolbar = document.getElementById('toolbar');
+const toggleTools = document.getElementById('toggleTools');
 const menuToggle = document.getElementById('menuToggle');
-const openMobileMenu = document.getElementById('openMobileMenu');
 const backdrop = document.getElementById('backdrop');
 const results = document.getElementById('results');
 const count = document.getElementById('count');
 const view = document.getElementById('view');
 const clear = document.getElementById('clear');
 const heroBadge = document.getElementById('heroBadge');
-const prevMobile = document.getElementById('prevMobile');
-const nextMobile = document.getElementById('nextMobile');
 let currentId = DATA[0].id;
 let filteredItems = DATA.slice();
 
@@ -371,6 +353,15 @@ function setMenu(open) {
   document.body.classList.toggle('menu-open', Boolean(open));
 }
 
+function setTools(open) {
+  const show = Boolean(open);
+  document.body.classList.toggle('tools-open', show);
+  if (show) {
+    setMenu(false);
+    setTimeout(() => q.focus(), 30);
+  }
+}
+
 function currentIndex() {
   return filteredItems.findIndex(item => item.id === currentId);
 }
@@ -387,6 +378,11 @@ function goToQuestion(id) {
   const next = DATA.find(item => item.id === id);
   if (!next) return false;
   currentId = next.id;
+  if (!filteredItems.some(item => item.id === currentId)) {
+    q.value = '';
+    renderList();
+    return true;
+  }
   syncJump();
   updateHash();
   renderView();
@@ -433,6 +429,9 @@ function renderList() {
 function renderView() {
   const item = DATA.find(x => x.id === currentId) || DATA[0];
   if (!item) return;
+  const index = currentIndex();
+  const hasPrev = index > 0;
+  const hasNext = index >= 0 && index < filteredItems.length - 1;
   view.innerHTML = `
     <div class="view-top">
       <div class="section">${esc(item.section)}</div>
@@ -444,20 +443,13 @@ function renderView() {
     ${paragraphs(item.answer)}
     <div class="tags">${item.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('')}</div>
     <div class="nav-controls">
-      <button id="prevDesktop" type="button">← Предыдущий</button>
-      <button id="nextDesktop" type="button">Следующий →</button>
+      <button id="prevDesktop" type="button" ${hasPrev ? '' : 'disabled'}>← Предыдущий</button>
+      <button id="nextDesktop" type="button" ${hasNext ? '' : 'disabled'}>Следующий →</button>
     </div>
   `;
   document.querySelectorAll('.result').forEach(el => el.classList.toggle('active', Number(el.dataset.id) === currentId));
-  const index = currentIndex();
-  const hasPrev = index > 0;
-  const hasNext = index >= 0 && index < filteredItems.length - 1;
   const prevDesktop = document.getElementById('prevDesktop');
   const nextDesktop = document.getElementById('nextDesktop');
-  prevDesktop.disabled = !hasPrev;
-  nextDesktop.disabled = !hasNext;
-  prevMobile.disabled = !hasPrev;
-  nextMobile.disabled = !hasNext;
   prevDesktop.addEventListener('click', () => moveBy(-1));
   nextDesktop.addEventListener('click', () => moveBy(1));
   updateHash();
@@ -478,6 +470,7 @@ function openQuestionFromJump() {
   if (!id) return;
   if (goToQuestion(id)) {
     setMenu(false);
+    setTools(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -489,6 +482,7 @@ results.addEventListener('click', e => {
   syncJump();
   renderView();
   setMenu(false);
+  setTools(false);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 q.addEventListener('input', renderList);
@@ -496,15 +490,29 @@ jump.addEventListener('keydown', e => {
   if (e.key === 'Enter') openQuestionFromJump();
 });
 go.addEventListener('click', openQuestionFromJump);
-menuToggle.addEventListener('click', () => setMenu(true));
-openMobileMenu.addEventListener('click', () => setMenu(true));
+goMobile.addEventListener('click', openQuestionFromJump);
+toggleTools.addEventListener('click', () => {
+  setTools(!document.body.classList.contains('tools-open'));
+});
+menuToggle.addEventListener('click', () => {
+  setTools(false);
+  setMenu(true);
+});
 backdrop.addEventListener('click', () => setMenu(false));
-prevMobile.addEventListener('click', () => moveBy(-1));
-nextMobile.addEventListener('click', () => moveBy(1));
-clear.addEventListener('click', () => { q.value = ''; q.focus(); renderList(); });
+clear.addEventListener('click', () => {
+  q.value = '';
+  q.focus();
+  renderList();
+});
 window.addEventListener('hashchange', () => {
   const id = parseHash();
   if (id) goToQuestion(id);
+});
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900) {
+    setMenu(false);
+    setTools(false);
+  }
 });
 const hashId = parseHash();
 if (hashId) currentId = hashId;
