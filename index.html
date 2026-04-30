@@ -52,7 +52,7 @@
   h1 {
     margin: 0;
     font-size: 24px;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
   .hero-actions {
     display: flex;
@@ -69,6 +69,7 @@
     font-weight: 700;
   }
   .toolbar {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 120px auto auto;
     gap: 10px;
@@ -91,6 +92,11 @@
   button {
     padding: 10px 14px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+    text-align: center;
     transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
   }
   button:hover {
@@ -113,6 +119,57 @@
   }
   .desktop-only { display: inline-flex; }
   .mobile-only { display: none; }
+  .suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    display: none;
+    max-height: min(420px, calc(100vh - 160px));
+    overflow: auto;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    z-index: 35;
+  }
+  .suggestions.open { display: block; }
+  .suggestion {
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: #fff;
+    color: var(--text);
+    display: block;
+    text-align: left;
+  }
+  .suggestion:hover,
+  .suggestion.active {
+    background: #f8fafc;
+  }
+  .suggestion-title {
+    display: block;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .suggestion-title .num {
+    color: var(--accent);
+    margin-right: 6px;
+  }
+  .suggestion-meta {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+    margin-top: 4px;
+  }
+  .suggestion-empty {
+    padding: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
   main {
     display: grid;
     grid-template-columns: 360px minmax(0, 1fr);
@@ -188,16 +245,7 @@
     margin: 14px 0;
     font-weight: 500;
   }
-  .tags { margin-top: 18px; }
-  .tag {
-    display: inline-block;
-    padding: 4px 8px;
-    margin: 3px 4px 3px 0;
-    background: #eef2f7;
-    border-radius: 999px;
-    color: #374151;
-    font-size: 13px;
-  }
+  .tags { display: none; }
   .nav-controls {
     display: flex;
     gap: 10px;
@@ -238,7 +286,7 @@
     h1 { font-size: 20px; }
     .hero-badge { display: none; }
     .toolbar {
-      grid-template-columns: 1fr 84px 84px;
+      grid-template-columns: 70px minmax(0, 1fr) 78px;
       margin-top: 10px;
     }
     .toolbar .search-input {
@@ -246,6 +294,9 @@
     }
     body:not(.tools-open) .toolbar {
       display: none;
+    }
+    .suggestions {
+      max-height: min(62vh, 480px);
     }
     .desktop-only { display: none; }
     .mobile-only { display: inline-flex; }
@@ -302,6 +353,7 @@
       <button id="go" class="desktop-only">Открыть</button>
       <button id="goMobile" class="mobile-only" type="button">Открыть</button>
       <button id="clear" type="button">Сброс</button>
+      <div class="suggestions" id="suggestions"></div>
     </div>
   </header>
   <main>
@@ -328,12 +380,15 @@ const toggleTools = document.getElementById('toggleTools');
 const menuToggle = document.getElementById('menuToggle');
 const backdrop = document.getElementById('backdrop');
 const results = document.getElementById('results');
+const suggestions = document.getElementById('suggestions');
 const count = document.getElementById('count');
 const view = document.getElementById('view');
 const clear = document.getElementById('clear');
 const heroBadge = document.getElementById('heroBadge');
 let currentId = DATA[0].id;
 let filteredItems = DATA.slice();
+let suggestionItems = [];
+let activeSuggestionIndex = -1;
 
 heroBadge.textContent = DATA.length + ' вопросов';
 
@@ -374,18 +429,25 @@ function syncJump() {
   jump.value = currentId;
 }
 
+function closeSuggestions() {
+  suggestions.classList.remove('open');
+  activeSuggestionIndex = -1;
+}
+
 function goToQuestion(id) {
   const next = DATA.find(item => item.id === id);
   if (!next) return false;
   currentId = next.id;
   if (!filteredItems.some(item => item.id === currentId)) {
     q.value = '';
+    closeSuggestions();
     renderList();
     return true;
   }
   syncJump();
   updateHash();
   renderView();
+  closeSuggestions();
   return true;
 }
 
@@ -408,21 +470,68 @@ function score(item, terms) {
   return sc;
 }
 
-function renderList() {
+function getMatches() {
   const terms = norm(q.value).trim().split(/\s+/).filter(Boolean);
   let arr = DATA.map(item => [item, terms.length ? score(item, terms) : 0])
     .filter(x => x[1] >= 0);
   if (terms.length) arr.sort((a,b) => b[1] - a[1] || a[0].id - b[0].id);
   else arr.sort((a,b) => a[0].id - b[0].id);
-  filteredItems = arr.map(([item]) => item);
-  count.textContent = arr.length + ' из ' + DATA.length + ' вопросов';
-  results.innerHTML = arr.map(([item]) => `
+  return arr.map(([item]) => item);
+}
+
+function renderSuggestions(items) {
+  const hasQuery = Boolean(q.value.trim());
+  suggestionItems = hasQuery ? items.slice(0, 8) : [];
+  activeSuggestionIndex = -1;
+  if (!hasQuery) {
+    closeSuggestions();
+    suggestions.innerHTML = '';
+    return;
+  }
+  suggestions.innerHTML = suggestionItems.length
+    ? suggestionItems.map((item, index) => `
+      <button class="suggestion" type="button" data-index="${index}">
+        <span class="suggestion-title"><span class="num">№${item.id}</span>${esc(item.question)}</span>
+        <span class="suggestion-meta">${esc(item.section)}</span>
+      </button>`).join('')
+    : '<div class="suggestion-empty">Ничего не найдено</div>';
+  suggestions.classList.add('open');
+}
+
+function updateActiveSuggestion() {
+  suggestions.querySelectorAll('.suggestion').forEach((el, index) => {
+    el.classList.toggle('active', index === activeSuggestionIndex);
+  });
+}
+
+function selectSuggestion(item) {
+  if (!item) return;
+  currentId = item.id;
+  q.value = item.question;
+  filteredItems = getMatches();
+  syncJump();
+  renderSidebar(filteredItems);
+  renderView();
+  closeSuggestions();
+  setMenu(false);
+  setTools(false);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderSidebar(items) {
+  filteredItems = items;
+  count.textContent = items.length + ' из ' + DATA.length + ' вопросов';
+  results.innerHTML = items.map((item) => `
     <div class="result ${item.id === currentId ? 'active' : ''}" data-id="${item.id}">
       <div class="result-title"><span class="num">№${item.id}</span>${esc(item.question)}</div>
       <div class="result-meta">${esc(item.section)} · ${esc(item.tags.slice(0,4).join(', '))}</div>
     </div>`).join('');
-  if (!arr.some(([item]) => item.id === currentId) && arr[0]) currentId = arr[0][0].id;
   syncJump();
+}
+
+function renderList() {
+  const matches = getMatches();
+  renderSidebar(matches);
   renderView();
 }
 
@@ -441,7 +550,7 @@ function renderView() {
     <div class="short"><strong>Кратко:</strong> ${esc(item.short_answer)}</div>
     <h3>Ответ</h3>
     ${paragraphs(item.answer)}
-    <div class="tags">${item.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('')}</div>
+    <div class="tags" aria-hidden="true">${item.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('')}</div>
     <div class="nav-controls">
       <button id="prevDesktop" type="button" ${hasPrev ? '' : 'disabled'}>← Предыдущий</button>
       <button id="nextDesktop" type="button" ${hasNext ? '' : 'disabled'}>Следующий →</button>
@@ -483,9 +592,40 @@ results.addEventListener('click', e => {
   renderView();
   setMenu(false);
   setTools(false);
+  closeSuggestions();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
-q.addEventListener('input', renderList);
+q.addEventListener('input', () => {
+  const matches = getMatches();
+  renderSidebar(matches);
+  renderSuggestions(matches);
+});
+q.addEventListener('focus', () => {
+  if (q.value.trim()) renderSuggestions(getMatches());
+});
+q.addEventListener('keydown', e => {
+  if (!suggestions.classList.contains('open')) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, suggestionItems.length - 1);
+    updateActiveSuggestion();
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
+    updateActiveSuggestion();
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    selectSuggestion(suggestionItems[Math.max(activeSuggestionIndex, 0)]);
+  }
+  if (e.key === 'Escape') closeSuggestions();
+});
+suggestions.addEventListener('click', e => {
+  const row = e.target.closest('.suggestion');
+  if (!row) return;
+  selectSuggestion(suggestionItems[Number(row.dataset.index)]);
+});
 jump.addEventListener('keydown', e => {
   if (e.key === 'Enter') openQuestionFromJump();
 });
@@ -502,7 +642,11 @@ backdrop.addEventListener('click', () => setMenu(false));
 clear.addEventListener('click', () => {
   q.value = '';
   q.focus();
+  closeSuggestions();
   renderList();
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#toolbar')) closeSuggestions();
 });
 window.addEventListener('hashchange', () => {
   const id = parseHash();
